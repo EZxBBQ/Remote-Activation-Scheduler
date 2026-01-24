@@ -53,7 +53,7 @@
 
 
         <!-- Overlay Panel -->
-        <div id="overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,0,0,0.5); z-index:20;">
+        <div id="overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; overflow-y:auto; background: rgba(0,0,0,0.5); z-index:20;">
             <div style="max-width:300px; margin:0vh auto; background: rgb(20,20,20); border:1px solid rgb(90,90,90); padding:10px; font-family: monospace;">
                 <div style="text-align:center; margin-bottom:20px;">
                     ADD SCHEDULE
@@ -92,7 +92,7 @@
                     </div>
 
                     <!-- Interval -->
-                    <div id="interval" margin-top:20px; margin-bottom:20px;">
+                    <div id="interval" style="margin-top:20px; margin-bottom:20px;">
                         <div style="margin-top:20px; margin-bottom:5px;">Interval</div>
                         <table style="width:100%; border-collapse:collapse;">
                             <tr>
@@ -128,6 +128,14 @@
 
         <!-- Script Section (Javascript) -->
         <script>
+            function fixVh()    // fix mobile height issue : remove 100vh at overlay and use windows.innerHeight instead
+            {
+                document.getElementById("overlay").style.height = window.innerHeight + "px";
+            }
+            window.addEventListener("resize", fixVh);
+            window.addEventListener("orientationchange", fixVh);
+            fixVh();
+
             function OpenOverlay()
             {
                 document.getElementById("overlay").style.display = "block";
@@ -143,7 +151,7 @@
                 const mode = document.getElementById("input_mode").value;
                 const inputInterval = document.getElementById("input_interval");
                 const inputIntervalUnit = document.getElementById("input_interval_unit");
-                const scheduleForm = document.getElementById("schedule_form");
+                const scheduleForm = document.getElementById("schedule_form");      // only document got .getElemetById()
                 const durationWeek = scheduleForm.elements["input_duration_week"];  // only form got .elements
                 const durationDay = scheduleForm.elements["input_duration_day"];
                 const durationHour = scheduleForm.elements["input_duration_hour"];
@@ -155,30 +163,45 @@
                 {
                     inputInterval.disabled = true;
                     inputIntervalUnit.disabled = true;
+                    durationWeek.required = true;
                     durationWeek.disabled = false;
+                    durationDay.required = true;
                     durationDay.disabled = false;
+                    durationHour.required = true;
                     durationHour.disabled = false;
+                    durationMinute.required = true;
                     durationMinute.disabled = false;
+                    durationSecond.required = true;
                     durationSecond.disabled = false;
                 }
                 else if (mode === "1")
                 {
                     inputInterval.disabled = false;
                     inputIntervalUnit.disabled = false;
+                    durationWeek.required = true;
                     durationWeek.disabled = false;
+                    durationDay.required = true;
                     durationDay.disabled = false;
+                    durationHour.required = true;
                     durationHour.disabled = false;
+                    durationMinute.required = true;
                     durationMinute.disabled = false;
+                    durationSecond.required = true;
                     durationSecond.disabled = false;
                 }
                 else if (mode === "2")
                 {
                     inputInterval.disabled = true;
                     inputIntervalUnit.disabled = true;
+                    durationWeek.required = false;
                     durationWeek.disabled = true;
+                    durationDay.required = false;
                     durationDay.disabled = true;
+                    durationHour.required = false;
                     durationHour.disabled = true;
+                    durationMinute.required = false;
                     durationMinute.disabled = true;
+                    durationSecond.required = false;
                     durationSecond.disabled = true;
                 }
             }
@@ -186,6 +209,12 @@
             function OnSubmitForm()
             {
                 const scheduleForm = document.getElementById("schedule_form");
+                const durationWeek   = Number(scheduleForm.elements["input_duration_week"].value);
+                const durationDay    = Number(scheduleForm.elements["input_duration_day"].value);
+                const durationHour   = Number(scheduleForm.elements["input_duration_hour"].value);
+                const durationMinute = Number(scheduleForm.elements["input_duration_minute"].value);
+                const durationSecond = Number(scheduleForm.elements["input_duration_second"].value);
+
                 if (durationWeek === 0 && durationDay === 0 && durationHour === 0 && durationMinute === 0 && durationSecond === 0)
                 {
                     scheduleForm.elements["input_duration_second"].setCustomValidity("Duration Must Be Greater then 0 Second");
@@ -215,7 +244,7 @@
                 const clone = panel.cloneNode(true);
 
                 // reference to placeholders (get reference to value, not to object)
-                const mode = document.getElementById("input_mode").value;   
+                const mode = document.getElementById("input_mode").value;  
                 const date = document.getElementById("input_date").value;
                 const startTime = document.getElementById("input_start_time").value;
                 const scheduleForm = document.getElementById("schedule_form");
@@ -235,6 +264,7 @@
                         break;
                     case "1" :
                         clone.querySelector(".Mode").innerText = "Repeat";
+                        clone.querySelector("#interval_placeholder").style.display = "block";   // fix interval placeholder issue : display it in clone, not template
                         const interval = document.getElementById("input_interval").value;
                         const intervalUnit = document.getElementById("input_interval_unit").value;  // 1 (minutes), 2 (hours), 3 (days), 4 (weeks)
                         switch (intervalUnit)
@@ -258,6 +288,9 @@
                             default : 
                                 clone.querySelector(".Interval").innerText = "Error";
                         }
+                        break;
+                    case "2" : 
+                        clone.querySelector(".Mode").innerText = "Always Active";
                         break;
                     default :
                         clone.querySelector(".Interval").innerText = "Error";
