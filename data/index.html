@@ -79,11 +79,9 @@
                     <!-- Duration -->
                     <div style="margin-top:20px; margin-bottom:20px;">
                         <!-- custom validity wont be cleared automatically, once triggered will always occur. clear it manually outside of submit -->
-                        <div style="margin-top:20px; margin-bottom:5px;">Duration (Weeks)</div>
-                        <input id="input_duration_week" type="number" min="0" required="true" disabled="false" oninput="ClearCustomValidity()" style="width:90%; padding:8px;">
                         <div style="margin-top:20px; margin-bottom:5px;">Duration (Days)</div>
                         <input id="input_duration_day" type="number" min="0" required="true" disabled="false" oninput="ClearCustomValidity()" style="width:90%; padding:8px;">
-                        <div style="margin-top:20px; margin-bottom:5px;">Duration (Hours)</div>
+                        <div style="margin-top:5px; margin-bottom:5px;">Duration (Hours)</div>
                         <input id="input_duration_hour" type="number" min="0" required="true" disabled="false" oninput="ClearCustomValidity()" style="width:90%; padding:8px;">
                         <div style="margin-top:5px; margin-bottom:5px;">Duration (Minutes)</div>
                         <input id="input_duration_minute" type="number" min="0" required="true" disabled="false" oninput="ClearCustomValidity()" style="width:90%; padding:8px;">
@@ -152,8 +150,7 @@
                 const inputInterval = document.getElementById("input_interval");
                 const inputIntervalUnit = document.getElementById("input_interval_unit");
                 const scheduleForm = document.getElementById("schedule_form");      // only document got .getElemetById()
-                const durationWeek = scheduleForm.elements["input_duration_week"];  // only form got .elements
-                const durationDay = scheduleForm.elements["input_duration_day"];
+                const durationDay = scheduleForm.elements["input_duration_day"];    // only form got .elements
                 const durationHour = scheduleForm.elements["input_duration_hour"];
                 const durationMinute = scheduleForm.elements["input_duration_minute"];
                 const durationSecond = scheduleForm.elements["input_duration_second"];
@@ -163,8 +160,6 @@
                 {
                     inputInterval.disabled = true;
                     inputIntervalUnit.disabled = true;
-                    durationWeek.required = true;
-                    durationWeek.disabled = false;
                     durationDay.required = true;
                     durationDay.disabled = false;
                     durationHour.required = true;
@@ -178,8 +173,6 @@
                 {
                     inputInterval.disabled = false;
                     inputIntervalUnit.disabled = false;
-                    durationWeek.required = true;
-                    durationWeek.disabled = false;
                     durationDay.required = true;
                     durationDay.disabled = false;
                     durationHour.required = true;
@@ -193,8 +186,6 @@
                 {
                     inputInterval.disabled = true;
                     inputIntervalUnit.disabled = true;
-                    durationWeek.required = false;
-                    durationWeek.disabled = true;
                     durationDay.required = false;
                     durationDay.disabled = true;
                     durationHour.required = false;
@@ -209,13 +200,12 @@
             function OnSubmitForm()
             {
                 const scheduleForm = document.getElementById("schedule_form");
-                const durationWeek   = Number(scheduleForm.elements["input_duration_week"].value);
                 const durationDay    = Number(scheduleForm.elements["input_duration_day"].value);
                 const durationHour   = Number(scheduleForm.elements["input_duration_hour"].value);
                 const durationMinute = Number(scheduleForm.elements["input_duration_minute"].value);
                 const durationSecond = Number(scheduleForm.elements["input_duration_second"].value);
 
-                if (durationWeek === 0 && durationDay === 0 && durationHour === 0 && durationMinute === 0 && durationSecond === 0)
+                if (durationDay === 0 && durationHour === 0 && durationMinute === 0 && durationSecond === 0)
                 {
                     scheduleForm.elements["input_duration_second"].setCustomValidity("Duration Must Be Greater then 0 Second");
                 }
@@ -248,11 +238,12 @@
                 const date = document.getElementById("input_date").value;
                 const startTime = document.getElementById("input_start_time").value;
                 const scheduleForm = document.getElementById("schedule_form");
-                const durationWeek = Number(scheduleForm.elements["input_duration_week"].value);
                 const durationDay = Number(scheduleForm.elements["input_duration_day"].value);
                 const durationHour = Number(scheduleForm.elements["input_duration_hour"].value);
                 const durationMinute = Number(scheduleForm.elements["input_duration_minute"].value);
                 const durationSecond = Number(scheduleForm.elements["input_duration_second"].value);
+                const interval = document.getElementById("input_interval").value;
+                const intervalUnit = document.getElementById("input_interval_unit").value;  // 1 (minutes), 2 (hours), 3 (days), 4 (weeks)
 
                 // set placeholder value with user input
                 clone.dataset.mode = mode;
@@ -265,8 +256,7 @@
                     case "1" :
                         clone.querySelector(".Mode").innerText = "Repeat";
                         clone.querySelector("#interval_placeholder").style.display = "block";   // fix interval placeholder issue : display it in clone, not template
-                        const interval = document.getElementById("input_interval").value;
-                        const intervalUnit = document.getElementById("input_interval_unit").value;  // 1 (minutes), 2 (hours), 3 (days), 4 (weeks)
+                        
                         switch (intervalUnit)
                         {
                             case "1" :
@@ -299,13 +289,37 @@
                 clone.querySelector(".Date").innerText = clone.dataset.date;
                 clone.dataset.startTime = startTime;
                 clone.querySelector(".StartTime").innerText = clone.dataset.startTime;
-                clone.dataset.duration = (durationWeek * 7 * 24 * 3600) + (durationDay * 24 * 3600) + (durationHour * 3600) + (durationMinute * 60) + durationSecond;
-                clone.querySelector(".Duration").innerText = durationWeek + " Weeks, " + durationDay + " Days, " + durationHour + " Hours, " + durationMinute + " Minutes, " + durationSecond + " Seconds";
+                clone.dataset.duration = (durationDay * 24 * 3600) + (durationHour * 3600) + (durationMinute * 60) + durationSecond;
+                clone.querySelector(".Duration").innerText = durationDay + " Days, " + durationHour + " Hours, " + durationMinute + " Minutes, " + durationSecond + " Seconds";
                 
                 clone.style.display = "block";
                 clone.id = "schedule_panel";
                 container.appendChild(clone);
                 CloseOverlay();
+                SendSchedule(mode, date, startTime, durationDay, durationHour, durationMinute, durationSecond, interval, intervalUnit);
+            }
+
+            function SendSchedule(mode, date, startTime, durationDay, durationHour, durationMinute, durationSecond, interval, intervalUnit)
+            {
+                var scheduleObj = {
+                    Mode: mode,
+                    Date: date,
+                    Start: startTime,
+                    Day: durationDay,
+                    Hour: durationHour,
+                    Minute: durationMinute,
+                    Second: durationSecond,
+                    Interval: interval,
+                    Unit: intervalUnit
+                };
+
+                fetch("/upload", {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json'
+                    },
+                    body: JSON.stringify(scheduleObj)
+                }).catch(error => console.error("Error: ", error));
             }
 
             function RemoveSchedule(button)

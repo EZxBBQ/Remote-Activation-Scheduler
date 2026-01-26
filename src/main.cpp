@@ -4,13 +4,16 @@
 #include "freertos/task.h"
 #include "LittleFS.h"       // for using littleFS file system on esp32
 #include "WiFi.h"  
-#include "WebServer.h"
+#include "AsyncTCP.h"
+#include "ESPAsyncWebServer.h"
 #include "HTTPClient.h"
+#include "ArduinoJson.h"
+#include "AsyncJson.h"
 #include "time.h"           //for connecting to NTP server
 #include "Wire.h"           // for I2C
 #include "RTClib.h"         // for interacting with RS3231
-#include "ArduinoJson.h"
 static_assert(__cplusplus >= 201703L, "C++17 not enabled"); // confirm the use of c++17
+
 
 
 // to do : fix the state test task to ensure state manager can respond to state test request to ask current state or change it (done)
@@ -53,10 +56,11 @@ QueueHandle_t requestQueue;
 QueueHandle_t responseQueue;
 
 // WiFi & website related variables
+// ensure WiFi use 2,4 GHz and use WPA2 for compatibility
 const char* wifi_ssid = "punya orang";
 const char* wifi_password = "b57aigqs";
-const char* web_server = "";
-WebServer webServer(80);
+AsyncWebServer webServer(80);
+String receivedSchedule = "";
 HTTPClient http;
 
 // NTP related variables
@@ -78,7 +82,6 @@ bool isDeviceActive = false;
 
 
 
-
 // WiFi related functions
 void InitWifi()
 {
@@ -86,7 +89,7 @@ void InitWifi()
   WiFi.begin(wifi_ssid, wifi_password);
   while (WiFi.status() != WL_CONNECTED)
   {
-    Serial.print(".");
+    Serial.println(String(WiFi.status()));
     delay(1000);
   }
   Serial.println("Connected to : " + String(wifi_ssid));
@@ -96,13 +99,61 @@ void InitWifi()
 
 
 // WebServer related functions
+void StoreSchedule(AsyncWebServerRequest* request)
+{
+  request->send(200, "text/plain", "schedule is sent and stored!");
+
+  /*
+    JsonDocument is basic type without any allocation rule (newer library expect this)
+    StaticJsonDocument is stored in stack (fixed size)
+    DynamicJsonDocument is stored in heap (dynamic size)
+    BasicJsonDocument is for custom allocation strategy
+  */
+
+  File scheduleFile = LittleFS.open("/schedule.txt", "w");
+  if (!scheduleFile)
+  {
+    Serial.println("Schedule file missing or can't be opened");
+    return;
+  }
+  scheduleFile.println(receivedSchedule);
+  scheduleFile.close();
+
+  // confirmation
+  scheduleFile = LittleFS.open("/schedule.txt", "r");
+  if (!scheduleFile)
+  {
+    Serial.println("Schedule file missing or can't be opened");
+    return;
+  }
+  while (scheduleFile.available())
+  {
+    Serial.write(scheduleFile.read());
+  }
+  scheduleFile.close();
+}
+
+void ReceiveSchedule(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total)
+{
+  if (index == 0)
+  {
+    receivedSchedule = "";
+    receivedSchedule.reserve(total);
+  }
+
+  for (size_t i = 0; i < len; i++)
+  {
+    receivedSchedule += (char)data[i];
+  }
+  Serial.println(receivedSchedule);
+}
+
 void InitWebServer()
 {
-  webServer.on("/", HTTP_GET, []() {
-    File mainPageFile = LittleFS.open("/index.html", "r");
-    webServer.streamFile(mainPageFile, "text/html");
-    mainPageFile.close();
+  webServer.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+    request->send(LittleFS, "/index.html", "text/html");
   });
+  webServer.on("/upload", HTTP_POST, StoreSchedule, NULL, ReceiveSchedule); // onRequest run after data fully transferred, onUpload and onBody run during transfer
   webServer.begin();
   Serial.println("IP Address : " + WiFi.localIP().toString());
   delay(1000);
@@ -122,7 +173,7 @@ void InitLittleFS()
   delay(1000);
 
   // sanity check
-  File testFile = LittleFS.open("/test.txt");
+  File testFile = LittleFS.open("/test.txt", "r");
   if (!testFile)
   {
     Serial.println("Test file missing or can't be opened");
@@ -135,45 +186,6 @@ void InitLittleFS()
   Serial.print("\n");
   testFile.close();
   delay(1000);
-}
-
-void StoreSchedule()
-{
-  /*
-    JsonDocument is basic type without any allocation rule
-    StaticJsonDocument is stored in stack (fixed size)
-    DynamicJsonDocument is stored in heap (dynamic size)
-    BasicJsonDocument is for custom allocation strategy
-  */
-  bool isSucceed = false;
-  String websiteResponse = "{}";
-  JsonDocument scheduleDoc;
-  http.begin(web_server);
-
-  while (!isSucceed)
-  {
-    int httpResponse = http.GET();
-    if (httpResponse == 200)
-    {
-      websiteResponse = http.getString();
-      break;
-    }
-    else
-    {
-      Serial.println("Data isn't properly sent");
-    }
-  }
-
-  File scheduleFile = LittleFS.open("/schedule.txt");
-  if (!scheduleFile)
-  {
-    Serial.println("Schedule file missing or can't be opened");
-    return;
-  }
-  while (scheduleFile.available())
-  {
-
-  }
 }
 
 
@@ -425,19 +437,18 @@ void setup()
     &StateManagerTaskHandle,
     0
   );
-  xTaskCreatePinnedToCore(
-    StateTest,
-    "State Test",
-    2048,
-    NULL,
-    1,
-    &stateTestHandle,
-    1
-  );
+  // xTaskCreatePinnedToCore(
+  //   StateTest,
+  //   "State Test",
+  //   2048,
+  //   NULL,
+  //   1,
+  //   &stateTestHandle,
+  //   1
+  // );
 }
 
 void loop() 
 { 
-  webServer.handleClient(); // begin() only open socket. this handle request
 }
 
